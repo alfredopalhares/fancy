@@ -1,3 +1,9 @@
+-- Coment this out if you dont need to test it this way
+-- Remove last dir
+local pwd = os.getenv("PWD"):match("(.+)/.-")
+package.path = pwd .. "/?.lua;" .. pwd .. "/?/init.lua;" .. package.path
+local fancy = require("fancy")
+
 -- Standard awesome library
 local gears = require("gears")
 local awful = require("awful")
