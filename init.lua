@@ -6,42 +6,73 @@ local fancy = {}
 fancy.cpu = awful.widget.graph()
 fancy.cpu:set_width(50)
 fancy.cpu:set_color("#FF5656")
-fancy.cpu:set_max_value(100)
+fancy.cpu:set_background_color('#494B4F')
+--fancy.cpu:set_gradient_colors({ '#FF5656', '#88A175', '#AECF96' })
+--fancy.cpu:set_max_value(100)
 
 local cpu_usage = {}
-local cpu_total = {}
+local prev_total = {}
+local prev_idle = {}
 
-local cpu_values = {}
-local file = io.open("/proc/stat")
-for line in file:lines() do
-  -- Its safe to break since cpu lines are always on the top of /proc/stat
-  if string.sub(line, 1, 3) ~= "cpu" then
-    break
-  end
+local function getCpuUsage()
+  local file = io.open("/proc/stat")
+  -- Important to clean previous values
+  cpu_usage = {}
+  local idle = {}
+  local total = {}
 
-  local values = {}
-  for value in string.gmatch(line, "[%s]+([^%s]+)") do
-    table.insert(values, value)
+
+  local nline = 1
+  for line in file:lines() do
+    -- Its safe to break since cpu lines are always on the top of /proc/stat
+    if string.sub(line, 1, 3) ~= "cpu" then
+      break
+    end
+
+    -- proc/stat cpu line is
+    -- core, user, nice, system, and idle
+    local values = {}
+    for value in string.gmatch(line, "[%s]+([^%s]+)") do
+      table.insert(values, value)
+    end
+    table.insert(idle, values[4])
+
+    local line_total = 0
+    for j = 1, #values do
+      line_total = line_total + values[j]
+    end
+    table.insert(total, line_total)
+
+
+    -- First run fills
+    if prev_idle[nline] == nil or prev_total[nline] == nil then
+      table.insert(cpu_usage, 0)
+    else
+      local diff_idle = idle[nline] - prev_idle[nline]
+      local diff_total = total[nline] - prev_total[nline]
+
+      table.insert(cpu_usage, 1 - (diff_idle / diff_total))
+    end
+
+    prev_idle[nline] = idle[nline]
+    prev_total[nline] = total[nline]
+
+    nline = nline + 1
   end
-  table.insert(cpu_values, values)
+  file:close()
+
+  pretty.dump(cpu_usage)
+
+  return cpu_usage
 end
-file:close()
 
--- pretty.dump(cpu_values)
-
--- The percentage is given by
--- (user + nice + system ) / total
-for i, values in ipairs(cpu_values) do
-  local total = 0
-  for j = 1, #values do
-    total = total + values[j]
+local cpu_timer = timer { timeout = 1}
+cpu_timer:connect_signal("timeout",
+  function()
+    local usage = getCpuUsage()
+    fancy.cpu:add_value(usage[1])
   end
-
-  table.insert(cpu_usage, ((values[1] + values[2] + values[3]) / total) * 100)
-end
-
-pretty.dump(cpu_usage)
-
-fancy.cpu:add_value(cpu_usage[0])
+)
+cpu_timer:start()
 
 return fancy
