@@ -1,5 +1,4 @@
 local awful = require("awful")
-local pretty = require("pl.pretty")
 
 local fancy = {}
 
@@ -60,8 +59,6 @@ local function getCpuUsage()
     nline = nline + 1
   end
   file:close()
-
-  pretty.dump(cpu_usage)
 
   return cpu_usage
 end
